@@ -11,7 +11,8 @@ var when = require('when'),
 
 var config,
 	dynamo,
-	tableInfo = {};
+	tableInfo = {},
+	datapoints;
 
 nconf.file({'file': 'config.json'});
 
@@ -32,7 +33,6 @@ aws.onConnected(function(){
 			dynamo.client.describeTable({
 				'TableName': table
 			}).always(function (resp) {
-				// console.log(resp.data, resp.error);
 				tableInfo[resp.data.Table.TableName] = {
 					'ProvisionedThroughput': {
 						'Read': resp.data.Table.ProvisionedThroughput.ReadCapacityUnits,
@@ -44,14 +44,13 @@ aws.onConnected(function(){
 			return d.promise;
 		})).then(next);
 	}).then(function(next){
-		var timeRangeMinutes = 30,
+		var timeRangeMinutes = 600,
 			intervalInMinutes = 1,
 			startTime = new Date(new Date().getTime() - 1000*60*timeRangeMinutes),
 			endTime = new Date(),
 			statistics = {
 				'Average': '1'
 			};
-
 		when.all(Object.keys(tableInfo).map(function(tableName){
 			var d = when.defer();
 			aws.cloudWatch.getMetricStatistics('AWS/DynamoDB', 'ConsumedReadCapacityUnits',
@@ -59,7 +58,14 @@ aws.onConnected(function(){
 				statistics, 'Count', {
 					'TableName': tableName
 				}).then(function(data){
-					console.log(JSON.stringify(data, null, 4));
+					datapoints = data.getMetricStatisticsResponse.getMetricStatisticsResult.datapoints;
+					if (datapoints !== undefined){
+						datapoints.map(function(pnt){
+							console.log(tableName)
+							console.log('    AVG: ' + pnt.average,
+								'PROV: ' + tableInfo[tableName].ProvisionedThroughput.Read);
+						});
+					}
 					d.resolve();
 				});
 			return d.promise;
