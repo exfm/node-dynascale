@@ -21,6 +21,11 @@ getConfig('development').then(function(c){
 	aws.connect(config.aws);
 });
 
+// Run with a setInterval for every 5 minutes
+// Get CloudWatch data for the last 30 minutes
+// If levels for any metric have been about 70% for
+// more than 5 consecutive datapoints, trigger scaling
+
 aws.onConnected(function(){
 
 	AWS.config.update({accessKeyId: config.aws.key, secretAccessKey: config.aws.secret});
@@ -32,11 +37,11 @@ aws.onConnected(function(){
 			var d = when.defer();
 			dynamo.client.describeTable({
 				'TableName': table
-			}).always(function (resp) {
-				tableInfo[resp.data.Table.TableName] = {
+			}).always(function (res) {
+				tableInfo[res.data.Table.TableName] = {
 					'ProvisionedThroughput': {
-						'Read': resp.data.Table.ProvisionedThroughput.ReadCapacityUnits,
-						'Write': resp.data.Table.ProvisionedThroughput.WriteCapacityUnits
+						'Read': res.data.Table.ProvisionedThroughput.ReadCapacityUnits,
+						'Write': res.data.Table.ProvisionedThroughput.WriteCapacityUnits
 					}
 				};
 				d.resolve();
@@ -61,7 +66,6 @@ aws.onConnected(function(){
 					datapoints = data.getMetricStatisticsResponse.getMetricStatisticsResult.datapoints;
 					if (datapoints !== undefined){
 						datapoints.map(function(pnt){
-							console.log(tableName)
 							console.log('    AVG: ' + pnt.average,
 								'PROV: ' + tableInfo[tableName].ProvisionedThroughput.Read);
 						});
@@ -71,4 +75,19 @@ aws.onConnected(function(){
 			return d.promise;
 		})).then(next);
 	});
+
+	function increaseThroughput(tableName, newThroughput){
+		var d = when.defer();
+		dynamo.client.updateTable({
+			'TableName': tableName,
+			'ProvisionedThroughput': newThroughput
+		}).always(function (res) {
+			if (!res.error){
+				return d.reject();
+			}
+			return d.resolve();
+		});
+		return d.promise;
+	}
 });
+
