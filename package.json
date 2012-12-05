@@ -1,0 +1,20 @@
+{
+  "author": " <>",
+  "name": "node-dynascale",
+  "description": "",
+  "version": "0.0.0",
+  "homepage": "http://github.com/exfm/node-dynascale",
+  "repository": {
+    "type": "git",
+    "url": "git://github.com/exfm/node-dynascale.git"
+  },
+  "scripts": {
+    "test": "grunt test"
+  },
+  "dependencies": {},
+  "devDependencies": {},
+  "optionalDependencies": {},
+  "engines": {
+    "node": "*"
+  }
+}
