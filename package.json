@@ -17,7 +17,8 @@
     "plata": "git://github.com/grmnygrmny/node-plata.git",
     "mambo": "git://github.com/exfm/node-mambo.git",
     "sequence": "2.2.1",
-    "nconf": "0.6.4"
+    "nconf": "0.6.4",
+    "aws-sdk": "0.9.0-pre.1"
   },
   "devDependencies": {},
   "optionalDependencies": {},
