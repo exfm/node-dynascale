@@ -23,6 +23,7 @@
     "loopfunc": false,
     "noarg": true,
     "regexp": false,
+    "node": true,
     "regexdash": false,
     "shadow": false,
     "supernew": false,

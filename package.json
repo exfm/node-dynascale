@@ -11,7 +11,14 @@
   "scripts": {
     "test": "grunt test"
   },
-  "dependencies": {},
+  "dependencies": {
+    "when": "git://github.com/exfm/when.git",
+    "junto": "git+ssh://git@github.com/exfm/node-junto.git",
+    "plata": "git://github.com/grmnygrmny/node-plata.git",
+    "mambo": "git://github.com/exfm/node-mambo.git",
+    "sequence": "2.2.1",
+    "nconf": "0.6.4"
+  },
   "devDependencies": {},
   "optionalDependencies": {},
   "engines": {

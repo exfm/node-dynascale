@@ -1,0 +1,35 @@
+#!/usr/bin/env node
+"use strict";
+
+var when = require('when'),
+	sequence = require('sequence'),
+	aws = require('plata'),
+	getConfig = require('junto'),
+	nconf = require('nconf');
+
+var config;
+
+nconf.file({'file': 'config.json'});
+
+getConfig('development').then(function(c){
+	config = c;
+	aws.connect(config.aws);
+});
+
+aws.onConnected(function(){
+
+	var timeRangeMinutes = 30,
+		startTime = new Date(new Date().getTime() - 1000*60*timeRangeMinutes),
+		endTime = new Date(),
+		statistics = {
+			'Average': '1'
+		};
+
+	aws.cloudWatch.getMetricStatistics('AWS/DynamoDB', 'ConsumedReadCapacityUnits',
+		'60', startTime.toISOString(), endTime.toISOString(),
+		statistics, 'Count', {
+				'TableName': 'Petrucci'
+			}).then(function(data){
+				console.log(data);
+			});
+});
