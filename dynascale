@@ -7,28 +7,47 @@ var when = require('when'),
 	AWS = require('aws-sdk'),
 	dynamo,
 	getConfig = require('junto'),
-	nconf = require('nconf');
+	nconf = require('nconf'),
+	util = require('util');
 
-var config;
+var config,
+	tableInfo = {};
 
 nconf.file({'file': 'config.json'});
 
 getConfig('development').then(function(c){
 	config = c;
 	plata.connect(config.aws);
-	AWS.config.update({accessKeyId: config.aws.key, secretAccessKey: config.aws.secret});
-	AWS.config.update({region: 'us-east-1'});
 });
 
 plata.onConnected(function(){
 
+	AWS.config.update({accessKeyId: config.aws.key, secretAccessKey: config.aws.secret});
+	AWS.config.update({region: 'us-east-1'});
 	dynamo = new AWS.DynamoDB();
 
-	dynamo.client.describeTable({
-		'TableName': 'Petrucci'
-	}).always(function (resp) {
-		console.log(resp.data, resp.error);
+	sequence(this).then(function(next){
+		when.all(nconf.get('tables').map(function(table){
+			var d = when.defer();
+			dynamo.client.describeTable({
+				'TableName': table
+			}).always(function (resp) {
+				// console.log(resp.data, resp.error);
+				tableInfo[resp.data.Table.TableName] = {
+					'ProvisionedThroughput': {
+						'Read': resp.data.Table.ProvisionedThroughput.ReadCapacityUnits,
+						'Write': resp.data.Table.ProvisionedThroughput.WriteCapacityUnits
+					}
+				};
+				d.resolve();
+			});
+			return d.promise;
+		})).then(next);
+	}).then(function(next){
+		console.log(JSON.stringify(tableInfo, null, 2));
 	});
+
+
 
 	// var timeRangeMinutes = 30,
 	// 	startTime = new Date(new Date().getTime() - 1000*60*timeRangeMinutes),
