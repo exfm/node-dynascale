@@ -1,5 +1,7 @@
 {
 	"tables": [
 		"myTable"
-	]
+	],
+	"readThresholdPercent": 0.70,
+	"writeThresholdPercent": 0.70
 }

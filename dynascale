@@ -3,24 +3,24 @@
 
 var when = require('when'),
 	sequence = require('sequence'),
-	plata = require('plata'),
+	aws = require('plata'),
 	AWS = require('aws-sdk'),
-	dynamo,
 	getConfig = require('junto'),
 	nconf = require('nconf'),
 	util = require('util');
 
 var config,
+	dynamo,
 	tableInfo = {};
 
 nconf.file({'file': 'config.json'});
 
 getConfig('development').then(function(c){
 	config = c;
-	plata.connect(config.aws);
+	aws.connect(config.aws);
 });
 
-plata.onConnected(function(){
+aws.onConnected(function(){
 
 	AWS.config.update({accessKeyId: config.aws.key, secretAccessKey: config.aws.secret});
 	AWS.config.update({region: 'us-east-1'});
@@ -44,23 +44,25 @@ plata.onConnected(function(){
 			return d.promise;
 		})).then(next);
 	}).then(function(next){
-		console.log(JSON.stringify(tableInfo, null, 2));
+		var timeRangeMinutes = 30,
+			intervalInMinutes = 1,
+			startTime = new Date(new Date().getTime() - 1000*60*timeRangeMinutes),
+			endTime = new Date(),
+			statistics = {
+				'Average': '1'
+			};
+
+		when.all(Object.keys(tableInfo).map(function(tableName){
+			var d = when.defer();
+			aws.cloudWatch.getMetricStatistics('AWS/DynamoDB', 'ConsumedReadCapacityUnits',
+				intervalInMinutes*60, startTime.toISOString(), endTime.toISOString(),
+				statistics, 'Count', {
+					'TableName': tableName
+				}).then(function(data){
+					console.log(JSON.stringify(data, null, 4));
+					d.resolve();
+				});
+			return d.promise;
+		})).then(next);
 	});
-
-
-
-	// var timeRangeMinutes = 30,
-	// 	startTime = new Date(new Date().getTime() - 1000*60*timeRangeMinutes),
-	// 	endTime = new Date(),
-	// 	statistics = {
-	// 		'Average': '1'
-	// 	};
-
-	// plata.cloudWatch.getMetricStatistics('AWS/DynamoDB', 'ConsumedReadCapacityUnits',
-	// 	'60', startTime.toISOString(), endTime.toISOString(),
-	// 	statistics, 'Count', {
-	// 			'TableName': 'Petrucci'
-	// 		}).then(function(data){
-	// 			console.log(data);
-	// 		});
 });
