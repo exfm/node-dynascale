@@ -11,9 +11,7 @@ var when = require('when'),
 
 var app = express(),
 	config,
-	dynamo,
-	tableInfo = {},
-	datapoints;
+	dynamo;
 
 nconf.file({'file': 'config.json'});
 
@@ -46,7 +44,7 @@ console.log('Listening on 8080');
 function checkThroughput(){
 	var d = when.defer(),
 		throughputStats = {},
-		timeRangeMinutes = 50,
+		timeRangeMinutes = 600,
 		startTime = new Date(new Date().getTime() - 1000*60*timeRangeMinutes),
 		endTime = new Date();
 
@@ -65,23 +63,29 @@ function checkThroughput(){
 					'write': [],
 					'read': []
 				};
-				// tableInfo[res.data.Table.TableName] = {
-				// 	'ProvisionedThroughput': {
-				// 		'Read': res.data.Table.ProvisionedThroughput.ReadCapacityUnits,
-				// 		'Write': res.data.Table.ProvisionedThroughput.WriteCapacityUnits
-				// 	}
-				// };
 				getThroughputStatistics(tableName,
-				'write', startTime, endTime).then(function(writeStats){
-					throughputStats[tableName].write =
-						(writeStats.datapoints === undefined) ? [] : writeStats.datapoints;
+					'write', startTime, endTime).then(function(writeStats){
+					if (writeStats.datapoints !== undefined){
+						writeStats.datapoints.map(function(pnt){
+							throughputStats[tableName].write.push({
+								'timestamp': pnt.timestamp,
+								'value': (pnt.sum/300)/res.data.Table.ProvisionedThroughput.WriteCapacityUnits
+							});
+						});
+					}
 					getThroughputStatistics(res.data.Table.TableName,
 						'read', startTime, endTime).then(function(readStats){
-							throughputStats[tableName].read =
-								(readStats.datapoints === undefined) ? [] : readStats.datapoints;
+							if (readStats.datapoints !== undefined){
+								readStats.datapoints.map(function(pnt){
+									throughputStats[tableName].read.push({
+										'timestamp': pnt.timestamp,
+										'value': (pnt.sum/300)/res.data.Table.ProvisionedThroughput.ReadCapacityUnits
+									});
+								});
+							}
+							p.resolve();
 						});
 				});
-				p.resolve();
 			}).fail(function(err){
 				p.reject(new Error(err));
 			});
@@ -121,13 +125,6 @@ function getThroughputStatistics(tableName, action, startTime, endTime){
 			'TableName': tableName
 		}).then(function(data){
 			d.resolve(data.getMetricStatisticsResponse.getMetricStatisticsResult);
-			// if (datapoints !== undefined){
-			// 	datapoints.map(function(pnt){
-			// 		var consumed = (pnt.sum/300),
-			// 			max = tableInfo[tableName].ProvisionedThroughput.Write;
-			// 		console.log(tableName, ' (' + action + '): ', (consumed/max)*100+'% ('+pnt.timestamp+')');
-			// 	});
-			// }
 		});
 	return d.promise;
 }
