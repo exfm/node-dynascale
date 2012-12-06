@@ -54,29 +54,18 @@ function checkThroughput(){
 		}).then(function(next){
 			var timeRangeMinutes = 120,
 				startTime = new Date(new Date().getTime() - 1000*60*timeRangeMinutes),
-				endTime = new Date(),
-				statistics = {
-					'Sum': '1'
-				};
+				endTime = new Date();
 			when.all(Object.keys(tableInfo).map(function(tableName){
 				var d = when.defer();
-				aws.cloudWatch.getMetricStatistics('AWS/DynamoDB', 'ConsumedWriteCapacityUnits',
-					300, startTime.toISOString(), endTime.toISOString(),
-					statistics, 'Count', {
-						'TableName': tableName
-					}).then(function(data){
-						datapoints = data.getMetricStatisticsResponse.getMetricStatisticsResult.datapoints;
-						if (datapoints !== undefined){
-							datapoints.map(function(pnt){
-								var consumed = (pnt.sum/300),
-									max = tableInfo[tableName].ProvisionedThroughput.Write;
-								console.log(tableName, ' (write): ', (consumed/max)*100+'% ('+pnt.timestamp+')');
-							});
-						}
-						d.resolve();
+				getThroughputStatistics(tableName,
+					'write', startTime, endTime).then(function(){
+						getThroughputStatistics(tableName,
+							'read', startTime, endTime).then(d.resolve);
 					});
 				return d.promise;
 			})).then(next);
+		}).then(function(next){
+			console.log('done.');
 		});
 	});
 }
@@ -92,5 +81,31 @@ function increaseThroughput(tableName, newThroughput){
 		}
 		return d.resolve();
 	});
+	return d.promise;
+}
+
+function getThroughputStatistics(tableName, action, startTime, endTime){
+	var d = when.defer(),
+		metrics = {
+			'write': 'ConsumedWriteCapacityUnits',
+			'read': 'ConsumedReadCapacityUnits'
+		};
+
+	aws.cloudWatch.getMetricStatistics('AWS/DynamoDB', metrics[action],
+		300, startTime.toISOString(), endTime.toISOString(),{
+			'Sum': '1'
+		}, 'Count', {
+			'TableName': tableName
+		}).then(function(data){
+			datapoints = data.getMetricStatisticsResponse.getMetricStatisticsResult.datapoints;
+			if (datapoints !== undefined){
+				datapoints.map(function(pnt){
+					var consumed = (pnt.sum/300),
+						max = tableInfo[tableName].ProvisionedThroughput.Write;
+					console.log(tableName, ' (' + action + '): ', (consumed/max)*100+'% ('+pnt.timestamp+')');
+				});
+			}
+			d.resolve();
+		});
 	return d.promise;
 }
