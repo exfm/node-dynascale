@@ -1,6 +1,6 @@
 # node-dynascale
 
-
+scale dynamodb based on cloudwatch metrics
 
 
 ## Install
@@ -10,6 +10,6 @@
 
 ## Running
 
-    git clone 
+    git clone
     npm install
     node node-dynascale
