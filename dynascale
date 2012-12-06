@@ -40,7 +40,7 @@ function checkThroughput(){
 				var d = when.defer();
 				dynamo.client.describeTable({
 					'TableName': table
-				}).always(function (res) {
+				}).done(function(res) {
 					tableInfo[res.data.Table.TableName] = {
 						'ProvisionedThroughput': {
 							'Read': res.data.Table.ProvisionedThroughput.ReadCapacityUnits,
@@ -48,6 +48,8 @@ function checkThroughput(){
 						}
 					};
 					d.resolve();
+				}).fail(function(err){
+					d.reject(new Error(err));
 				});
 				return d.promise;
 			})).then(next);
