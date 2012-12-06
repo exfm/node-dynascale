@@ -21,73 +21,76 @@ getConfig('development').then(function(c){
 	aws.connect(config.aws);
 });
 
+checkThroughput();
+setInterval(checkThroughput, 10000);
+
 // Run with a setInterval for every 5 minutes
 // Get CloudWatch data for the last 30 minutes
 // If levels for any metric have been about 70% for
 // more than 5 consecutive datapoints, trigger scaling
 
-aws.onConnected(function(){
+function checkThroughput(){
+	aws.onConnected(function(){
+		AWS.config.update({accessKeyId: config.aws.key, secretAccessKey: config.aws.secret});
+		AWS.config.update({region: 'us-east-1'});
+		dynamo = new AWS.DynamoDB();
 
-	AWS.config.update({accessKeyId: config.aws.key, secretAccessKey: config.aws.secret});
-	AWS.config.update({region: 'us-east-1'});
-	dynamo = new AWS.DynamoDB();
-
-	sequence(this).then(function(next){
-		when.all(nconf.get('tables').map(function(table){
-			var d = when.defer();
-			dynamo.client.describeTable({
-				'TableName': table
-			}).always(function (res) {
-				tableInfo[res.data.Table.TableName] = {
-					'ProvisionedThroughput': {
-						'Read': res.data.Table.ProvisionedThroughput.ReadCapacityUnits,
-						'Write': res.data.Table.ProvisionedThroughput.WriteCapacityUnits
-					}
-				};
-				d.resolve();
-			});
-			return d.promise;
-		})).then(next);
-	}).then(function(next){
-		var timeRangeMinutes = 600,
-			intervalInMinutes = 1,
-			startTime = new Date(new Date().getTime() - 1000*60*timeRangeMinutes),
-			endTime = new Date(),
-			statistics = {
-				'Average': '1'
-			};
-		when.all(Object.keys(tableInfo).map(function(tableName){
-			var d = when.defer();
-			aws.cloudWatch.getMetricStatistics('AWS/DynamoDB', 'ConsumedReadCapacityUnits',
-				intervalInMinutes*60, startTime.toISOString(), endTime.toISOString(),
-				statistics, 'Count', {
-					'TableName': tableName
-				}).then(function(data){
-					datapoints = data.getMetricStatisticsResponse.getMetricStatisticsResult.datapoints;
-					if (datapoints !== undefined){
-						datapoints.map(function(pnt){
-							console.log('    AVG: ' + pnt.average,
-								'PROV: ' + tableInfo[tableName].ProvisionedThroughput.Read);
-						});
-					}
+		sequence(this).then(function(next){
+			when.all(nconf.get('tables').map(function(table){
+				var d = when.defer();
+				dynamo.client.describeTable({
+					'TableName': table
+				}).always(function (res) {
+					tableInfo[res.data.Table.TableName] = {
+						'ProvisionedThroughput': {
+							'Read': res.data.Table.ProvisionedThroughput.ReadCapacityUnits,
+							'Write': res.data.Table.ProvisionedThroughput.WriteCapacityUnits
+						}
+					};
 					d.resolve();
 				});
-			return d.promise;
-		})).then(next);
-	});
-
-	function increaseThroughput(tableName, newThroughput){
-		var d = when.defer();
-		dynamo.client.updateTable({
-			'TableName': tableName,
-			'ProvisionedThroughput': newThroughput
-		}).always(function (res) {
-			if (!res.error){
-				return d.reject();
-			}
-			return d.resolve();
+				return d.promise;
+			})).then(next);
+		}).then(function(next){
+			var timeRangeMinutes = 120,
+				startTime = new Date(new Date().getTime() - 1000*60*timeRangeMinutes),
+				endTime = new Date(),
+				statistics = {
+					'Sum': '1'
+				};
+			when.all(Object.keys(tableInfo).map(function(tableName){
+				var d = when.defer();
+				aws.cloudWatch.getMetricStatistics('AWS/DynamoDB', 'ConsumedWriteCapacityUnits',
+					300, startTime.toISOString(), endTime.toISOString(),
+					statistics, 'Count', {
+						'TableName': tableName
+					}).then(function(data){
+						datapoints = data.getMetricStatisticsResponse.getMetricStatisticsResult.datapoints;
+						if (datapoints !== undefined){
+							datapoints.map(function(pnt){
+								var consumed = (pnt.sum/300),
+									max = tableInfo[tableName].ProvisionedThroughput.Write;
+								console.log(tableName, ' (write): ', (consumed/max)*100+'% ('+pnt.timestamp+')');
+							});
+						}
+						d.resolve();
+					});
+				return d.promise;
+			})).then(next);
 		});
-		return d.promise;
-	}
-});
+	});
+}
 
+function increaseThroughput(tableName, newThroughput){
+	var d = when.defer();
+	dynamo.client.updateTable({
+		'TableName': tableName,
+		'ProvisionedThroughput': newThroughput
+	}).always(function (res) {
+		if (!res.error){
+			return d.reject();
+		}
+		return d.resolve();
+	});
+	return d.promise;
+}
