@@ -77,11 +77,10 @@ function increaseThroughput(tableName, newThroughput){
 	dynamo.client.updateTable({
 		'TableName': tableName,
 		'ProvisionedThroughput': newThroughput
-	}).always(function (res) {
-		if (!res.error){
-			return d.reject();
-		}
+	}).done(function (res) {
 		return d.resolve();
+	}).fail(function(err){
+		return d.reject(new Error(err));
 	});
 	return d.promise;
 }
