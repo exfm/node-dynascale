@@ -35,7 +35,7 @@ app.get('/notification/:message', function(req, res){
 });
 
 app.get('/throughput', function(req, res){
-	checkThroughput.then(function(data){
+	checkThroughput().then(function(data){
 		res.json(data);
 	});
 });
