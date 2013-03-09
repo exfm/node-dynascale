@@ -15,7 +15,7 @@
   "dependencies": {
     "when": "git://github.com/exfm/when.git",
     "junto": "git+ssh://git@github.com/exfm/node-junto.git",
-    "plata": "git://github.com/exfm/node-plata.git",
+    "plata": "0.0.29",
     "mambo": "git://github.com/exfm/node-mambo.git",
     "sequence": "2.2.1",
     "aws-sdk": "0.9.0-pre.1",
